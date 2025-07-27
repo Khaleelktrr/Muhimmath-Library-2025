@@ -274,7 +274,7 @@ export class DatabaseStorage implements IStorage {
       .values({
         ...circulationData,
         date: new Date(),
-        status: "active",
+        status: circulationData.action === "return" ? "returned" : "active",
       })
       .returning();
     return newCirculation;

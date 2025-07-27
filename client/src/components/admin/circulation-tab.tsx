@@ -19,6 +19,7 @@ export default function CirculationTab() {
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [selectedMemberId, setSelectedMemberId] = useState<string>("");
+  const [memberSearchQuery, setMemberSearchQuery] = useState("");
 
   const { data: books = [] } = useQuery<Book[]>({
     queryKey: ["/api/books"],
@@ -71,6 +72,7 @@ export default function CirculationTab() {
       setShowIssueModal(false);
       setSelectedBook(null);
       setSelectedMemberId("");
+      setMemberSearchQuery("");
     },
     onError: (error) => {
       toast({
@@ -83,25 +85,35 @@ export default function CirculationTab() {
 
   const returnBook = useMutation({
     mutationFn: async ({ bookId }: { bookId: number }) => {
-      // Find the active circulation record for this book
+      // Find the active borrow record for this book
       const activeRecordsResponse = await apiRequest("GET", "/api/circulation/active");
       const activeRecords = await activeRecordsResponse.json();
-      const activeRecord = activeRecords.find((record: any) => record.bookId === bookId);
+      const activeBorrowRecord = activeRecords.find((record: any) => 
+        record.bookId === bookId && record.action === "borrow"
+      );
       
-      if (activeRecord) {
-        // Update the active circulation record to "returned" status
-        await apiRequest("PUT", `/api/circulation/${activeRecord.id}`, { 
-          status: "returned" 
+      if (activeBorrowRecord) {
+        // Update the active borrow record to "returned" status and add return date
+        await apiRequest("PUT", `/api/circulation/${activeBorrowRecord.id}`, { 
+          status: "returned",
+          returnDate: new Date().toISOString()
         });
         
         // Create return circulation record for history
         const circulationData = {
           bookId,
-          memberId: activeRecord.memberId,
+          memberId: activeBorrowRecord.memberId,
           action: "return",
         };
         
-        await apiRequest("POST", "/api/circulation", circulationData);
+        const returnResponse = await apiRequest("POST", "/api/circulation", circulationData);
+        const returnRecord = await returnResponse.json();
+        
+        // Update the return record to "returned" status immediately
+        await apiRequest("PUT", `/api/circulation/${returnRecord.id}`, { 
+          status: "returned",
+          returnDate: new Date().toISOString()
+        });
       }
       
       // Update book status to available
@@ -362,18 +374,36 @@ export default function CirculationTab() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Select Member
                 </label>
-                <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a member..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {members.map((member) => (
-                      <SelectItem key={member.id} value={member.id.toString()}>
-                        {member.fullName} - {member.class}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Search by name, class, or registration number..."
+                      value={memberSearchQuery}
+                      onChange={(e) => setMemberSearchQuery(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a member..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {members
+                        .filter(member => 
+                          memberSearchQuery === "" || 
+                          member.fullName.toLowerCase().includes(memberSearchQuery.toLowerCase()) ||
+                          member.class.toLowerCase().includes(memberSearchQuery.toLowerCase()) ||
+                          member.registrationNo.toLowerCase().includes(memberSearchQuery.toLowerCase())
+                        )
+                        .map((member) => (
+                        <SelectItem key={member.id} value={member.id.toString()}>
+                          {member.fullName} - {member.class} ({member.registrationNo})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               
               <div className="text-sm text-gray-600">
