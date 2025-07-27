@@ -83,14 +83,26 @@ export default function CirculationTab() {
 
   const returnBook = useMutation({
     mutationFn: async ({ bookId }: { bookId: number }) => {
-      // Create return circulation record
-      const circulationData = {
-        bookId,
-        memberId: 1, // This should be the member who borrowed it
-        action: "return",
-      };
+      // Find the active circulation record for this book
+      const activeRecordsResponse = await apiRequest("GET", "/api/circulation/active");
+      const activeRecords = await activeRecordsResponse.json();
+      const activeRecord = activeRecords.find((record: any) => record.bookId === bookId);
       
-      await apiRequest("POST", "/api/circulation", circulationData);
+      if (activeRecord) {
+        // Update the active circulation record to "returned" status
+        await apiRequest("PUT", `/api/circulation/${activeRecord.id}`, { 
+          status: "returned" 
+        });
+        
+        // Create return circulation record for history
+        const circulationData = {
+          bookId,
+          memberId: activeRecord.memberId,
+          action: "return",
+        };
+        
+        await apiRequest("POST", "/api/circulation", circulationData);
+      }
       
       // Update book status to available
       await apiRequest("PUT", `/api/books/${bookId}`, { status: "available" });
