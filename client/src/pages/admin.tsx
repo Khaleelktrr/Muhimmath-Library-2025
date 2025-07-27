@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { ChartLine, Bell, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,16 @@ export default function Admin() {
   const [, navigate] = useLocation();
   const [showReportsModal, setShowReportsModal] = useState(false);
 
+  // Check if user is logged in
+  useEffect(() => {
+    const isLoggedIn = localStorage.getItem("isAdminLoggedIn");
+    if (!isLoggedIn) {
+      navigate("/login");
+    }
+  }, [navigate]);
+
   const handleLogout = () => {
+    localStorage.removeItem("isAdminLoggedIn");
     navigate("/");
   };
 
