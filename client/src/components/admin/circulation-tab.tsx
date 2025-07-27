@@ -255,8 +255,8 @@ export default function CirculationTab() {
             <>
               {getDisplayData().length > 0 ? (
                 <div className="grid gap-4">
-                  {(getDisplayData() as { book: Book; member: Member; dueDate: Date | null }[]).map((item) => (
-                    <div key={`${item.book.id}-${item.member.id}`} className="flex items-center justify-between p-4 border rounded-lg">
+                  {(getDisplayData() as { book: Book; member: Member; dueDate: Date | null }[]).map((item, index) => (
+                    <div key={`issued-${item.book.id}-${item.member.id}-${index}`} className="flex items-center justify-between p-4 border rounded-lg">
                       <div>
                         <h3 className="font-medium text-gray-900">{item.book.title}</h3>
                         <p className="text-sm text-gray-600">{item.book.author}</p>
@@ -294,8 +294,8 @@ export default function CirculationTab() {
             <>
               {getDisplayData().length > 0 ? (
                 <div className="grid gap-4">
-                  {(getDisplayData() as { book: Book; member: Member; dueDate: Date | null }[]).map((item) => (
-                    <div key={`${item.book.id}-${item.member.id}`} className="flex items-center justify-between p-4 border rounded-lg border-red-200 bg-red-50">
+                  {(getDisplayData() as { book: Book; member: Member; dueDate: Date | null }[]).map((item, index) => (
+                    <div key={`overdue-${item.book.id}-${item.member.id}-${index}`} className="flex items-center justify-between p-4 border rounded-lg border-red-200 bg-red-50">
                       <div>
                         <h3 className="font-medium text-gray-900">{item.book.title}</h3>
                         <p className="text-sm text-gray-600">{item.book.author}</p>

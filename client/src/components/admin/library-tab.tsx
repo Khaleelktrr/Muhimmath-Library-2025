@@ -3,16 +3,17 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Search, Plus, Trash2 } from "lucide-react";
+import { Search, Plus, Trash2, Edit, Save, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
-import type { Category, InsertBook, InsertCategory } from "@shared/schema";
+import type { Category, InsertBook, InsertCategory, Book } from "@shared/schema";
 
 const bookSchema = z.object({
   title: z.string().min(1, "Book title is required"),
@@ -35,9 +36,16 @@ export default function LibraryTab() {
   const { toast } = useToast();
   const [newCategory, setNewCategory] = useState("");
   const [categorySearch, setCategorySearch] = useState("");
+  const [bookSearch, setBookSearch] = useState("");
+  const [editingBook, setEditingBook] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState<Partial<Book>>({});
 
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
+  });
+
+  const { data: books = [] } = useQuery<Book[]>({
+    queryKey: ["/api/books"],
   });
 
   const bookForm = useForm<BookForm>({
@@ -117,6 +125,49 @@ export default function LibraryTab() {
     },
   });
 
+  const updateBook = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Partial<Book> }) => {
+      const response = await apiRequest("PUT", `/api/books/${id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/books"] });
+      toast({
+        title: "Success",
+        description: "Book updated successfully!",
+      });
+      setEditingBook(null);
+      setEditForm({});
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update book. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteBook = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/books/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/books"] });
+      toast({
+        title: "Success",
+        description: "Book deleted successfully!",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to delete book. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const onSubmitBook = (data: BookForm) => {
     createBook.mutate(data);
   };
@@ -127,12 +178,53 @@ export default function LibraryTab() {
     }
   };
 
+  const handleEditBook = (book: Book) => {
+    setEditingBook(book.id);
+    setEditForm({ ...book });
+  };
+
+  const handleSaveEdit = () => {
+    if (editingBook && editForm) {
+      updateBook.mutate({ 
+        id: editingBook, 
+        data: editForm 
+      });
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingBook(null);
+    setEditForm({});
+  };
+
   const filteredCategories = categories.filter(category =>
     category.name.toLowerCase().includes(categorySearch.toLowerCase())
   );
 
+  const filteredBooks = books.filter(book =>
+    bookSearch === "" || 
+    book.title.toLowerCase().includes(bookSearch.toLowerCase()) ||
+    book.author.toLowerCase().includes(bookSearch.toLowerCase()) ||
+    book.category.toLowerCase().includes(bookSearch.toLowerCase()) ||
+    book.publisher.toLowerCase().includes(bookSearch.toLowerCase())
+  );
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "available":
+        return "bg-green-100 text-green-800";
+      case "issued":
+        return "bg-red-100 text-red-800";
+      case "reserved":
+        return "bg-yellow-100 text-yellow-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div className="space-y-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
       {/* Add New Book */}
       <Card>
         <div className="px-6 py-4 border-b border-gray-200">
@@ -341,6 +433,156 @@ export default function LibraryTab() {
           )}
         </CardContent>
       </Card>
+    </div>
+
+    {/* Books Listing */}
+    <Card>
+      <div className="px-6 py-4 border-b border-gray-200">
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-semibold text-gray-900">Library Books</h2>
+          <Badge variant="outline">{filteredBooks.length} Books</Badge>
+        </div>
+      </div>
+      
+      <CardContent className="p-6">
+        {/* Search */}
+        <div className="mb-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Input
+              placeholder="Search books by title, author, category, or publisher..."
+              value={bookSearch}
+              onChange={(e) => setBookSearch(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </div>
+
+        {/* Books List */}
+        {filteredBooks.length > 0 ? (
+          <div className="space-y-4">
+            {filteredBooks.map((book) => (
+              <div key={book.id} className="border rounded-lg p-4">
+                {editingBook === book.id ? (
+                  /* Edit Mode */
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                        <Input
+                          value={editForm.title || ""}
+                          onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Author</label>
+                        <Input
+                          value={editForm.author || ""}
+                          onChange={(e) => setEditForm({ ...editForm, author: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                        <Select 
+                          value={editForm.category || ""} 
+                          onValueChange={(value) => setEditForm({ ...editForm, category: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categories.map((category) => (
+                              <SelectItem key={category.id} value={category.name}>
+                                {category.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Publisher</label>
+                        <Input
+                          value={editForm.publisher || ""}
+                          onChange={(e) => setEditForm({ ...editForm, publisher: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Price (₹)</label>
+                        <Input
+                          type="number"
+                          value={editForm.price || 0}
+                          onChange={(e) => setEditForm({ ...editForm, price: parseFloat(e.target.value) || 0 })}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-end space-x-2">
+                      <Button variant="outline" onClick={handleCancelEdit}>
+                        <X className="w-4 h-4 mr-2" />
+                        Cancel
+                      </Button>
+                      <Button onClick={handleSaveEdit} disabled={updateBook.isPending}>
+                        <Save className="w-4 h-4 mr-2" />
+                        {updateBook.isPending ? "Saving..." : "Save"}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  /* View Mode */
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-4 mb-2">
+                        <h3 className="font-semibold text-gray-900">{book.title}</h3>
+                        <Badge className={getStatusColor(book.status)}>
+                          {book.status.charAt(0).toUpperCase() + book.status.slice(1)}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-2 text-sm text-gray-600">
+                        <div><span className="font-medium">Author:</span> {book.author}</div>
+                        <div><span className="font-medium">Category:</span> {book.category}</div>
+                        <div><span className="font-medium">Publisher:</span> {book.publisher}</div>
+                        <div><span className="font-medium">Price:</span> ₹{book.price}</div>
+                      </div>
+                      <div className="mt-1 text-xs text-gray-500">
+                        DDC: {book.ddc} • Language: {book.language}
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditBook(book)}
+                      >
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => deleteBook.mutate(book.id)}
+                        disabled={deleteBook.isPending}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <div className="text-gray-400 text-4xl mb-4">📚</div>
+            <p className="text-gray-600">
+              {bookSearch ? "No books match your search criteria." : "No books available in the library."}
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
     </div>
   );
 }
