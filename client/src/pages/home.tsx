@@ -22,6 +22,10 @@ export default function Home() {
     queryKey: ["/api/books"],
   });
 
+  const { data: issuedBooks = [] } = useQuery<{ book: Book; member: { id: number; fullName: string; class: string; registrationNo: string }; dueDate: Date | null }[]>({
+    queryKey: ["/api/analytics/issued-books"],
+  });
+
   const { data: searchResults = [], isLoading: searchLoading } = useQuery<Book[]>({
     queryKey: ["/api/books/search", searchQuery],
     enabled: searchQuery.length > 0,
@@ -120,9 +124,12 @@ export default function Home() {
             {/* Books Grid */}
             {!booksLoading && !searchLoading && displayBooks.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {displayBooks.map((book) => (
-                  <BookCard key={book.id} book={book} />
-                ))}
+                {displayBooks.map((book) => {
+                  const borrower = issuedBooks.find(item => item.book.id === book.id)?.member;
+                  return (
+                    <BookCard key={book.id} book={book} borrower={borrower} />
+                  );
+                })}
               </div>
             )}
             

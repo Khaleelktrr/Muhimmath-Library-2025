@@ -4,9 +4,10 @@ import type { Book } from "@shared/schema";
 
 interface BookCardProps {
   book: Book;
+  borrower?: { id: number; fullName: string; class: string; registrationNo: string };
 }
 
-export default function BookCard({ book }: BookCardProps) {
+export default function BookCard({ book, borrower }: BookCardProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "available":
@@ -52,11 +53,22 @@ export default function BookCard({ book }: BookCardProps) {
           {book.author}
         </p>
         
-        <div className="flex items-center justify-between">
-          <Badge className={getStatusColor(book.status)}>
-            {getStatusText(book.status)}
-          </Badge>
-          <span className="text-xs text-gray-500">{book.category}</span>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Badge className={getStatusColor(book.status)}>
+              {getStatusText(book.status)}
+            </Badge>
+            <span className="text-xs text-gray-500">{book.category}</span>
+          </div>
+          
+          {/* Show borrower information when book is checked out */}
+          {book.status === "issued" && borrower && (
+            <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
+              <div className="font-medium">Checked out by:</div>
+              <div>{borrower.fullName}</div>
+              <div className="text-gray-500">{borrower.class}</div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
