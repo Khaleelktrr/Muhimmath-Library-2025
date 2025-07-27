@@ -39,19 +39,22 @@ export default function CirculationTab() {
 
   const issueBook = useMutation({
     mutationFn: async ({ bookId, memberId }: { bookId: number; memberId: number }) => {
-      // Set due date to 14 days from now
-      const dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() + 14);
-      
       const circulationData = {
         bookId,
         memberId,
         action: "borrow",
-        dueDate: dueDate.toISOString(),
       };
       
-      // Create circulation record
-      await apiRequest("POST", "/api/circulation", circulationData);
+      // Create circulation record first
+      const circulationRecord = await apiRequest("POST", "/api/circulation", circulationData) as any;
+      
+      // Set due date to 14 days from now and update the record
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 14);
+      
+      await apiRequest("PUT", `/api/circulation/${circulationRecord.id}`, { 
+        dueDate: dueDate.toISOString() 
+      });
       
       // Update book status to issued
       await apiRequest("PUT", `/api/books/${bookId}`, { status: "issued" });

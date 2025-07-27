@@ -242,7 +242,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/circulation", async (req, res) => {
     try {
-      const data = insertCirculationSchema.parse(req.body);
+      // Handle date conversion manually before validation
+      const requestData = { ...req.body };
+      if (requestData.dueDate && typeof requestData.dueDate === 'string') {
+        requestData.dueDate = new Date(requestData.dueDate);
+      }
+      if (requestData.returnDate && typeof requestData.returnDate === 'string') {
+        requestData.returnDate = new Date(requestData.returnDate);
+      }
+      
+      const data = insertCirculationSchema.parse(requestData);
       const circulation = await storage.createCirculationRecord(data);
       res.status(201).json(circulation);
     } catch (error) {
@@ -250,6 +259,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid circulation data", details: error.errors });
       }
       res.status(500).json({ error: "Failed to create circulation record" });
+    }
+  });
+
+  app.put("/api/circulation/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      // Handle date conversion manually before validation
+      const requestData = { ...req.body };
+      if (requestData.dueDate && typeof requestData.dueDate === 'string') {
+        requestData.dueDate = new Date(requestData.dueDate);
+      }
+      if (requestData.returnDate && typeof requestData.returnDate === 'string') {
+        requestData.returnDate = new Date(requestData.returnDate);
+      }
+      
+      const circulation = await storage.updateCirculationRecord(id, requestData);
+      if (!circulation) {
+        return res.status(404).json({ error: "Circulation record not found" });
+      }
+      res.json(circulation);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update circulation record" });
     }
   });
 
