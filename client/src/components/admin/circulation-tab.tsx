@@ -46,7 +46,8 @@ export default function CirculationTab() {
       };
       
       // Create circulation record first
-      const circulationRecord = await apiRequest("POST", "/api/circulation", circulationData) as any;
+      const circulationResponse = await apiRequest("POST", "/api/circulation", circulationData);
+      const circulationRecord = await circulationResponse.json();
       
       // Set due date to 14 days from now and update the record
       const dueDate = new Date();
