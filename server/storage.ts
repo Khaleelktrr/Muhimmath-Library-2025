@@ -319,8 +319,8 @@ export class DatabaseStorage implements IStorage {
     });
 
     const results: { book: Book; borrowCount: number }[] = [];
-    for (const bookId of borrowCounts.keys()) {
-      const count = borrowCounts.get(bookId)!;
+    const entries = Array.from(borrowCounts.entries());
+    for (const [bookId, count] of entries) {
       const book = await this.getBook(bookId);
       if (book) {
         results.push({ book, borrowCount: count });
@@ -342,8 +342,8 @@ export class DatabaseStorage implements IStorage {
     });
 
     const results: { member: Member; borrowCount: number }[] = [];
-    for (const memberId of borrowCounts.keys()) {
-      const count = borrowCounts.get(memberId)!;
+    const entries = Array.from(borrowCounts.entries());
+    for (const [memberId, count] of entries) {
       const member = await this.getMember(memberId);
       if (member) {
         results.push({ member, borrowCount: count });
