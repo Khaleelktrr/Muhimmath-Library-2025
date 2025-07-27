@@ -1,18 +1,31 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 import type { Book, Member } from "@shared/schema";
 
 export default function CirculationTab() {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<"available" | "issued" | "overdue">("available");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showIssueModal, setShowIssueModal] = useState(false);
+  const [selectedBook, setSelectedBook] = useState<Book | null>(null);
+  const [selectedMemberId, setSelectedMemberId] = useState<string>("");
 
   const { data: books = [] } = useQuery<Book[]>({
     queryKey: ["/api/books"],
+  });
+
+  const { data: members = [] } = useQuery<Member[]>({
+    queryKey: ["/api/members"],
   });
 
   const { data: issuedBooks = [] } = useQuery<{ book: Book; member: Member; dueDate: Date | null }[]>({
@@ -23,6 +36,96 @@ export default function CirculationTab() {
   const overdueBooks = issuedBooks.filter(item => 
     item.dueDate && new Date(item.dueDate) < new Date()
   );
+
+  const issueBook = useMutation({
+    mutationFn: async ({ bookId, memberId }: { bookId: number; memberId: number }) => {
+      // Set due date to 14 days from now
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 14);
+      
+      const circulationData = {
+        bookId,
+        memberId,
+        action: "borrow",
+        dueDate: dueDate.toISOString(),
+      };
+      
+      // Create circulation record
+      await apiRequest("POST", "/api/circulation", circulationData);
+      
+      // Update book status to issued
+      await apiRequest("PUT", `/api/books/${bookId}`, { status: "issued" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/books"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/issued-books"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/circulation"] });
+      toast({
+        title: "Success",
+        description: "Book issued successfully!",
+      });
+      setShowIssueModal(false);
+      setSelectedBook(null);
+      setSelectedMemberId("");
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to issue book. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const returnBook = useMutation({
+    mutationFn: async ({ bookId }: { bookId: number }) => {
+      // Create return circulation record
+      const circulationData = {
+        bookId,
+        memberId: 1, // This should be the member who borrowed it
+        action: "return",
+      };
+      
+      await apiRequest("POST", "/api/circulation", circulationData);
+      
+      // Update book status to available
+      await apiRequest("PUT", `/api/books/${bookId}`, { status: "available" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/books"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/issued-books"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/circulation"] });
+      toast({
+        title: "Success",
+        description: "Book returned successfully!",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to return book. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleIssueBook = (book: Book) => {
+    setSelectedBook(book);
+    setShowIssueModal(true);
+  };
+
+  const handleConfirmIssue = () => {
+    if (selectedBook && selectedMemberId) {
+      issueBook.mutate({
+        bookId: selectedBook.id,
+        memberId: parseInt(selectedMemberId),
+      });
+    }
+  };
+
+  const handleReturnBook = (bookId: number) => {
+    returnBook.mutate({ bookId });
+  };
 
   const getTabCount = (tab: string) => {
     switch (tab) {
@@ -124,7 +227,13 @@ export default function CirculationTab() {
                       </div>
                       <div className="flex items-center space-x-2">
                         <Badge className="bg-green-100 text-green-800">Available</Badge>
-                        <Button size="sm">Issue Book</Button>
+                        <Button 
+                          size="sm" 
+                          onClick={() => handleIssueBook(book)}
+                          disabled={issueBook.isPending}
+                        >
+                          Issue Book
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -156,7 +265,14 @@ export default function CirculationTab() {
                             Due: {new Date(item.dueDate).toLocaleDateString()}
                           </Badge>
                         )}
-                        <Button size="sm" variant="outline">Return Book</Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleReturnBook(item.book.id)}
+                          disabled={returnBook.isPending}
+                        >
+                          Return Book
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -188,7 +304,14 @@ export default function CirculationTab() {
                             Due: {new Date(item.dueDate).toLocaleDateString()}
                           </Badge>
                         )}
-                        <Button size="sm" variant="outline">Return Book</Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleReturnBook(item.book.id)}
+                          disabled={returnBook.isPending}
+                        >
+                          Return Book
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -203,6 +326,63 @@ export default function CirculationTab() {
           )}
         </div>
       </CardContent>
+
+      {/* Issue Book Modal */}
+      <Dialog open={showIssueModal} onOpenChange={setShowIssueModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Issue Book</DialogTitle>
+          </DialogHeader>
+          
+          {selectedBook && (
+            <div className="space-y-4">
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <h3 className="font-medium text-gray-900">{selectedBook.title}</h3>
+                <p className="text-sm text-gray-600">{selectedBook.author}</p>
+                <p className="text-xs text-gray-500">{selectedBook.category}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Member
+                </label>
+                <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a member..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {members.map((member) => (
+                      <SelectItem key={member.id} value={member.id.toString()}>
+                        {member.fullName} - {member.class}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="text-sm text-gray-600">
+                Due date will be set to 14 days from today
+              </div>
+              
+              <div className="flex justify-end space-x-3 pt-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setShowIssueModal(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleConfirmIssue}
+                  disabled={!selectedMemberId || issueBook.isPending}
+                >
+                  {issueBook.isPending ? "Issuing..." : "Issue Book"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
