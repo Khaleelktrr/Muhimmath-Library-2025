@@ -120,6 +120,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/members/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const data = insertMemberSchema.parse(req.body);
+      const updated = await storage.updateMember(id, data);
+      if (!updated) {
+        return res.status(404).json({ error: "Member not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid member data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update member" });
+    }
+  });
+
+  app.delete("/api/members/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteMember(id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Member not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete member" });
+    }
+  });
+
   // Categories
   app.get("/api/categories", async (req, res) => {
     try {
@@ -140,6 +170,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid category data", details: error.errors });
       }
       res.status(500).json({ error: "Failed to create category" });
+    }
+  });
+
+  app.put("/api/categories/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const data = insertCategorySchema.parse(req.body);
+      const updated = await storage.updateCategory(id, data);
+      if (!updated) {
+        return res.status(404).json({ error: "Category not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid category data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update category" });
     }
   });
 

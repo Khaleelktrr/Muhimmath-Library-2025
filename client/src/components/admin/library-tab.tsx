@@ -39,6 +39,8 @@ export default function LibraryTab() {
   const [bookSearch, setBookSearch] = useState("");
   const [editingBook, setEditingBook] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<Partial<Book>>({});
+  const [editingCategory, setEditingCategory] = useState<number | null>(null);
+  const [editCategoryName, setEditCategoryName] = useState("");
 
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
@@ -168,6 +170,29 @@ export default function LibraryTab() {
     },
   });
 
+  const updateCategory = useMutation({
+    mutationFn: async ({ id, name }: { id: number; name: string }) => {
+      const response = await apiRequest("PUT", `/api/categories/${id}`, { name });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      toast({
+        title: "Success",
+        description: "Category updated successfully!",
+      });
+      setEditingCategory(null);
+      setEditCategoryName("");
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update category. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const onSubmitBook = (data: BookForm) => {
     createBook.mutate(data);
   };
@@ -195,6 +220,25 @@ export default function LibraryTab() {
   const handleCancelEdit = () => {
     setEditingBook(null);
     setEditForm({});
+  };
+
+  const handleEditCategory = (category: Category) => {
+    setEditingCategory(category.id);
+    setEditCategoryName(category.name);
+  };
+
+  const handleSaveCategoryEdit = () => {
+    if (editingCategory && editCategoryName.trim()) {
+      updateCategory.mutate({ 
+        id: editingCategory, 
+        name: editCategoryName.trim() 
+      });
+    }
+  };
+
+  const handleCancelCategoryEdit = () => {
+    setEditingCategory(null);
+    setEditCategoryName("");
   };
 
   const filteredCategories = categories.filter(category =>
@@ -276,11 +320,23 @@ export default function LibraryTab() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {categories.map((category) => (
-                            <SelectItem key={category.id} value={category.name}>
-                              {category.name}
-                            </SelectItem>
-                          ))}
+                          <div className="p-2">
+                            <Input
+                              placeholder="Search categories..."
+                              value={categorySearch}
+                              onChange={(e) => setCategorySearch(e.target.value)}
+                              className="mb-2"
+                            />
+                          </div>
+                          {categories
+                            .filter(category => 
+                              category.name.toLowerCase().includes(categorySearch.toLowerCase())
+                            )
+                            .map((category) => (
+                              <SelectItem key={category.id} value={category.name}>
+                                {category.name}
+                              </SelectItem>
+                            ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -303,10 +359,11 @@ export default function LibraryTab() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                          <SelectItem value="Kannada">Kannada</SelectItem>
+                          <SelectItem value="Malayalam">Malayalam</SelectItem>
                           <SelectItem value="English">English</SelectItem>
-                          <SelectItem value="Spanish">Spanish</SelectItem>
-                          <SelectItem value="French">French</SelectItem>
-                          <SelectItem value="German">German</SelectItem>
+                          <SelectItem value="Arabic">Arabic</SelectItem>
+                          <SelectItem value="Urdu">Urdu</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -411,15 +468,50 @@ export default function LibraryTab() {
             <div className="space-y-2">
               {filteredCategories.map((category) => (
                 <div key={category.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <span className="font-medium text-gray-900">{category.name}</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => deleteCategory.mutate(category.id)}
-                    disabled={deleteCategory.isPending}
-                  >
-                    <Trash2 className="w-4 h-4 text-red-500" />
-                  </Button>
+                  {editingCategory === category.id ? (
+                    <div className="flex items-center space-x-2 flex-1">
+                      <Input
+                        value={editCategoryName}
+                        onChange={(e) => setEditCategoryName(e.target.value)}
+                        className="flex-1"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={handleSaveCategoryEdit}
+                        disabled={updateCategory.isPending}
+                      >
+                        <Save className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCancelCategoryEdit}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <span className="font-medium text-gray-900">{category.name}</span>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditCategory(category)}
+                        >
+                          <Edit className="w-4 h-4 text-blue-500" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteCategory.mutate(category.id)}
+                          disabled={deleteCategory.isPending}
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
             </div>

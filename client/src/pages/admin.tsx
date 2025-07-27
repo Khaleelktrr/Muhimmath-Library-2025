@@ -7,7 +7,7 @@ import CirculationTab from "@/components/admin/circulation-tab";
 import LibraryTab from "@/components/admin/library-tab";
 import MembersTab from "@/components/admin/members-tab";
 import FeedbackTab from "@/components/admin/feedback-tab";
-import HistoryTab from "@/components/admin/history-tab";
+import EnhancedHistoryTab from "@/components/admin/enhanced-history-tab";
 import ViewReportsModal from "@/components/modals/view-reports-modal";
 
 export default function Admin() {
@@ -74,7 +74,7 @@ export default function Admin() {
           </TabsContent>
 
           <TabsContent value="history">
-            <HistoryTab />
+            <EnhancedHistoryTab />
           </TabsContent>
         </Tabs>
       </div>

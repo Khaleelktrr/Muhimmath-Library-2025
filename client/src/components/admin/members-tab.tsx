@@ -3,11 +3,12 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Search, Users } from "lucide-react";
+import { Search, Users, Edit, Save, X, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
@@ -24,6 +25,8 @@ type MemberForm = z.infer<typeof memberSchema>;
 export default function MembersTab() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
+  const [editingMember, setEditingMember] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState<Partial<Member>>({});
 
   const { data: members = [] } = useQuery<Member[]>({
     queryKey: ["/api/members"],
@@ -60,8 +63,70 @@ export default function MembersTab() {
     },
   });
 
+  const updateMember = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Partial<Member> }) => {
+      const response = await apiRequest("PUT", `/api/members/${id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/members"] });
+      toast({
+        title: "Success",
+        description: "Member updated successfully!",
+      });
+      setEditingMember(null);
+      setEditForm({});
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update member. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMember = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/members/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/members"] });
+      toast({
+        title: "Success",
+        description: "Member deleted successfully!",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to delete member. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const onSubmit = (data: MemberForm) => {
     createMember.mutate(data);
+  };
+
+  const handleEditMember = (member: Member) => {
+    setEditingMember(member.id);
+    setEditForm({ ...member });
+  };
+
+  const handleSaveEdit = () => {
+    if (editingMember && editForm) {
+      updateMember.mutate({ 
+        id: editingMember, 
+        data: editForm 
+      });
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMember(null);
+    setEditForm({});
   };
 
   const filteredMembers = members.filter(member =>
@@ -145,15 +210,82 @@ export default function MembersTab() {
           {filteredMembers.length > 0 ? (
             <div className="space-y-3">
               {filteredMembers.map((member) => (
-                <div key={member.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-gray-900">{member.fullName}</p>
-                    <p className="text-sm text-gray-600">{member.class}</p>
-                    <p className="text-xs text-gray-500">Reg No: {member.registrationNo}</p>
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    Added: {new Date(member.createdAt).toLocaleDateString()}
-                  </div>
+                <div key={member.id} className="border rounded-lg p-4">
+                  {editingMember === member.id ? (
+                    /* Edit Mode */
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                          <Input
+                            value={editForm.fullName || ""}
+                            onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
+                          <Input
+                            value={editForm.class || ""}
+                            onChange={(e) => setEditForm({ ...editForm, class: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Registration No</label>
+                          <Input
+                            value={editForm.registrationNo || ""}
+                            onChange={(e) => setEditForm({ ...editForm, registrationNo: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="flex justify-end space-x-2">
+                        <Button variant="outline" onClick={handleCancelEdit}>
+                          <X className="w-4 h-4 mr-2" />
+                          Cancel
+                        </Button>
+                        <Button onClick={handleSaveEdit} disabled={updateMember.isPending}>
+                          <Save className="w-4 h-4 mr-2" />
+                          {updateMember.isPending ? "Saving..." : "Save"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* View Mode */
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-4 mb-2">
+                          <h3 className="font-semibold text-gray-900">{member.fullName}</h3>
+                          <Badge variant="secondary">{member.class}</Badge>
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          <span className="font-medium">Registration No:</span> {member.registrationNo}
+                        </div>
+                        {member.createdAt && (
+                          <div className="mt-1 text-xs text-gray-500">
+                            Joined: {new Date(member.createdAt).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditMember(member)}
+                        >
+                          <Edit className="w-4 h-4 mr-2" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => deleteMember.mutate(member.id)}
+                          disabled={deleteMember.isPending}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

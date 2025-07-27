@@ -275,7 +275,7 @@ export default function CirculationTab() {
                         <p className="text-xs text-gray-500">Borrowed by {item.member.fullName}</p>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Badge className="bg-red-100 text-red-800">Issued</Badge>
+                        <Badge className="bg-red-100 text-red-800 font-bold">⚡ ISSUED</Badge>
                         {item.dueDate && (
                           <Badge variant="outline">
                             Due: {new Date(item.dueDate).toLocaleDateString()}
@@ -314,7 +314,7 @@ export default function CirculationTab() {
                         <p className="text-xs text-gray-500">Borrowed by {item.member.fullName}</p>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Badge className="bg-red-100 text-red-800">Overdue</Badge>
+                        <Badge className="bg-red-500 text-white font-bold animate-pulse">🚨 OVERDUE</Badge>
                         {item.dueDate && (
                           <Badge variant="destructive">
                             Due: {new Date(item.dueDate).toLocaleDateString()}
