@@ -1,8 +1,11 @@
 import { 
   Book, InsertBook, Member, InsertMember, Category, InsertCategory,
   BookSuggestion, InsertBookSuggestion, BookReview, InsertBookReview,
-  Circulation, InsertCirculation
+  Circulation, InsertCirculation,
+  books, members, categories, bookSuggestions, bookReviews, circulation
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, and, like, or, lt } from "drizzle-orm";
 
 export interface IStorage {
   // Books
@@ -55,252 +58,270 @@ export interface IStorage {
   getIssuedBooks(): Promise<{ book: Book; member: Member; dueDate: Date | null }[]>;
 }
 
-export class MemStorage implements IStorage {
-  private books: Map<number, Book> = new Map();
-  private members: Map<number, Member> = new Map();
-  private categories: Map<number, Category> = new Map();
-  private bookSuggestions: Map<number, BookSuggestion> = new Map();
-  private bookReviews: Map<number, BookReview> = new Map();
-  private circulation: Map<number, Circulation> = new Map();
-  private currentId = 1;
-
+export class DatabaseStorage implements IStorage {
   // Books
   async getBooks(): Promise<Book[]> {
-    return Array.from(this.books.values());
+    return await db.select().from(books);
   }
 
   async getBook(id: number): Promise<Book | undefined> {
-    return this.books.get(id);
+    const [book] = await db.select().from(books).where(eq(books.id, id));
+    return book || undefined;
   }
 
   async createBook(book: InsertBook): Promise<Book> {
-    const id = this.currentId++;
-    const newBook: Book = {
-      ...book,
-      id,
-      status: "available",
-      createdAt: new Date(),
-    };
-    this.books.set(id, newBook);
+    const [newBook] = await db
+      .insert(books)
+      .values({
+        ...book,
+        status: "available",
+        createdAt: new Date(),
+      })
+      .returning();
     return newBook;
   }
 
   async updateBook(id: number, updates: Partial<Book>): Promise<Book | undefined> {
-    const book = this.books.get(id);
-    if (!book) return undefined;
-    
-    const updatedBook = { ...book, ...updates };
-    this.books.set(id, updatedBook);
-    return updatedBook;
+    const [updatedBook] = await db
+      .update(books)
+      .set(updates)
+      .where(eq(books.id, id))
+      .returning();
+    return updatedBook || undefined;
   }
 
   async deleteBook(id: number): Promise<boolean> {
-    return this.books.delete(id);
+    const result = await db.delete(books).where(eq(books.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 
   async searchBooks(query: string): Promise<Book[]> {
-    const books = Array.from(this.books.values());
-    const lowerQuery = query.toLowerCase();
-    return books.filter(book => 
-      book.title.toLowerCase().includes(lowerQuery) ||
-      book.author.toLowerCase().includes(lowerQuery) ||
-      book.category.toLowerCase().includes(lowerQuery)
-    );
+    const lowerQuery = `%${query.toLowerCase()}%`;
+    return await db
+      .select()
+      .from(books)
+      .where(
+        or(
+          like(books.title, lowerQuery),
+          like(books.author, lowerQuery),
+          like(books.category, lowerQuery)
+        )
+      );
   }
 
   // Members
   async getMembers(): Promise<Member[]> {
-    return Array.from(this.members.values());
+    return await db.select().from(members);
   }
 
   async getMember(id: number): Promise<Member | undefined> {
-    return this.members.get(id);
+    const [member] = await db.select().from(members).where(eq(members.id, id));
+    return member || undefined;
   }
 
   async createMember(member: InsertMember): Promise<Member> {
-    const id = this.currentId++;
-    const newMember: Member = {
-      ...member,
-      id,
-      createdAt: new Date(),
-    };
-    this.members.set(id, newMember);
+    const [newMember] = await db
+      .insert(members)
+      .values({
+        ...member,
+        createdAt: new Date(),
+      })
+      .returning();
     return newMember;
   }
 
   async updateMember(id: number, updates: Partial<Member>): Promise<Member | undefined> {
-    const member = this.members.get(id);
-    if (!member) return undefined;
-    
-    const updatedMember = { ...member, ...updates };
-    this.members.set(id, updatedMember);
-    return updatedMember;
+    const [updatedMember] = await db
+      .update(members)
+      .set(updates)
+      .where(eq(members.id, id))
+      .returning();
+    return updatedMember || undefined;
   }
 
   async deleteMember(id: number): Promise<boolean> {
-    return this.members.delete(id);
+    const result = await db.delete(members).where(eq(members.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 
   async searchMembers(query: string): Promise<Member[]> {
-    const members = Array.from(this.members.values());
-    const lowerQuery = query.toLowerCase();
-    return members.filter(member => 
-      member.fullName.toLowerCase().includes(lowerQuery) ||
-      member.class.toLowerCase().includes(lowerQuery) ||
-      member.registrationNo.toLowerCase().includes(lowerQuery)
-    );
+    const lowerQuery = `%${query.toLowerCase()}%`;
+    return await db
+      .select()
+      .from(members)
+      .where(
+        or(
+          like(members.fullName, lowerQuery),
+          like(members.class, lowerQuery),
+          like(members.registrationNo, lowerQuery)
+        )
+      );
   }
 
   // Categories
   async getCategories(): Promise<Category[]> {
-    return Array.from(this.categories.values());
+    return await db.select().from(categories);
   }
 
   async getCategory(id: number): Promise<Category | undefined> {
-    return this.categories.get(id);
+    const [category] = await db.select().from(categories).where(eq(categories.id, id));
+    return category || undefined;
   }
 
   async createCategory(category: InsertCategory): Promise<Category> {
-    const id = this.currentId++;
-    const newCategory: Category = {
-      ...category,
-      id,
-      createdAt: new Date(),
-    };
-    this.categories.set(id, newCategory);
+    const [newCategory] = await db
+      .insert(categories)
+      .values({
+        ...category,
+        createdAt: new Date(),
+      })
+      .returning();
     return newCategory;
   }
 
   async updateCategory(id: number, updates: Partial<Category>): Promise<Category | undefined> {
-    const category = this.categories.get(id);
-    if (!category) return undefined;
-    
-    const updatedCategory = { ...category, ...updates };
-    this.categories.set(id, updatedCategory);
-    return updatedCategory;
+    const [updatedCategory] = await db
+      .update(categories)
+      .set(updates)
+      .where(eq(categories.id, id))
+      .returning();
+    return updatedCategory || undefined;
   }
 
   async deleteCategory(id: number): Promise<boolean> {
-    return this.categories.delete(id);
+    const result = await db.delete(categories).where(eq(categories.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Book Suggestions
   async getBookSuggestions(): Promise<BookSuggestion[]> {
-    return Array.from(this.bookSuggestions.values());
+    return await db.select().from(bookSuggestions);
   }
 
   async getBookSuggestion(id: number): Promise<BookSuggestion | undefined> {
-    return this.bookSuggestions.get(id);
+    const [suggestion] = await db.select().from(bookSuggestions).where(eq(bookSuggestions.id, id));
+    return suggestion || undefined;
   }
 
   async createBookSuggestion(suggestion: InsertBookSuggestion): Promise<BookSuggestion> {
-    const id = this.currentId++;
-    const newSuggestion: BookSuggestion = {
-      ...suggestion,
-      id,
-      status: "pending",
-      createdAt: new Date(),
-    };
-    this.bookSuggestions.set(id, newSuggestion);
+    const [newSuggestion] = await db
+      .insert(bookSuggestions)
+      .values({
+        ...suggestion,
+        status: "pending",
+        createdAt: new Date(),
+      })
+      .returning();
     return newSuggestion;
   }
 
   async updateBookSuggestion(id: number, updates: Partial<BookSuggestion>): Promise<BookSuggestion | undefined> {
-    const suggestion = this.bookSuggestions.get(id);
-    if (!suggestion) return undefined;
-    
-    const updatedSuggestion = { ...suggestion, ...updates };
-    this.bookSuggestions.set(id, updatedSuggestion);
-    return updatedSuggestion;
+    const [updatedSuggestion] = await db
+      .update(bookSuggestions)
+      .set(updates)
+      .where(eq(bookSuggestions.id, id))
+      .returning();
+    return updatedSuggestion || undefined;
   }
 
   // Book Reviews
   async getBookReviews(): Promise<BookReview[]> {
-    return Array.from(this.bookReviews.values());
+    return await db.select().from(bookReviews);
   }
 
   async getBookReview(id: number): Promise<BookReview | undefined> {
-    return this.bookReviews.get(id);
+    const [review] = await db.select().from(bookReviews).where(eq(bookReviews.id, id));
+    return review || undefined;
   }
 
   async createBookReview(review: InsertBookReview): Promise<BookReview> {
-    const id = this.currentId++;
-    const newReview: BookReview = {
-      ...review,
-      id,
-      createdAt: new Date(),
-    };
-    this.bookReviews.set(id, newReview);
+    const [newReview] = await db
+      .insert(bookReviews)
+      .values({
+        ...review,
+        createdAt: new Date(),
+      })
+      .returning();
     return newReview;
   }
 
   async updateBookReview(id: number, updates: Partial<BookReview>): Promise<BookReview | undefined> {
-    const review = this.bookReviews.get(id);
-    if (!review) return undefined;
-    
-    const updatedReview = { ...review, ...updates };
-    this.bookReviews.set(id, updatedReview);
-    return updatedReview;
+    const [updatedReview] = await db
+      .update(bookReviews)
+      .set(updates)
+      .where(eq(bookReviews.id, id))
+      .returning();
+    return updatedReview || undefined;
   }
 
   async getBookReviewsByBook(bookId: number): Promise<BookReview[]> {
-    return Array.from(this.bookReviews.values()).filter(review => review.bookId === bookId);
+    return await db.select().from(bookReviews).where(eq(bookReviews.bookId, bookId));
   }
 
   // Circulation
   async getCirculation(): Promise<Circulation[]> {
-    return Array.from(this.circulation.values());
+    return await db.select().from(circulation);
   }
 
   async getCirculationRecord(id: number): Promise<Circulation | undefined> {
-    return this.circulation.get(id);
+    const [record] = await db.select().from(circulation).where(eq(circulation.id, id));
+    return record || undefined;
   }
 
-  async createCirculationRecord(circulation: InsertCirculation): Promise<Circulation> {
-    const id = this.currentId++;
-    const newCirculation: Circulation = {
-      ...circulation,
-      id,
-      date: new Date(),
-      status: "active",
-    };
-    this.circulation.set(id, newCirculation);
+  async createCirculationRecord(circulationData: InsertCirculation): Promise<Circulation> {
+    const [newCirculation] = await db
+      .insert(circulation)
+      .values({
+        ...circulationData,
+        date: new Date(),
+        status: "active",
+      })
+      .returning();
     return newCirculation;
   }
 
   async updateCirculationRecord(id: number, updates: Partial<Circulation>): Promise<Circulation | undefined> {
-    const record = this.circulation.get(id);
-    if (!record) return undefined;
-    
-    const updatedRecord = { ...record, ...updates };
-    this.circulation.set(id, updatedRecord);
-    return updatedRecord;
+    const [updatedRecord] = await db
+      .update(circulation)
+      .set(updates)
+      .where(eq(circulation.id, id))
+      .returning();
+    return updatedRecord || undefined;
   }
 
   async getActiveCirculation(): Promise<Circulation[]> {
-    return Array.from(this.circulation.values()).filter(c => c.status === "active");
+    return await db.select().from(circulation).where(eq(circulation.status, "active"));
   }
 
   async getOverdueCirculation(): Promise<Circulation[]> {
     const now = new Date();
-    return Array.from(this.circulation.values()).filter(c => 
-      c.status === "active" && c.dueDate && new Date(c.dueDate) < now
-    );
+    return await db
+      .select()
+      .from(circulation)
+      .where(
+        and(
+          eq(circulation.status, "active"),
+          lt(circulation.dueDate, now)
+        )
+      );
   }
 
   // Analytics
   async getMostReadBooks(): Promise<{ book: Book; borrowCount: number }[]> {
+    const borrowRecords = await db
+      .select()
+      .from(circulation)
+      .where(eq(circulation.action, "borrow"));
+
     const borrowCounts = new Map<number, number>();
-    
-    Array.from(this.circulation.values()).forEach(record => {
-      if (record.action === "borrow") {
-        borrowCounts.set(record.bookId, (borrowCounts.get(record.bookId) || 0) + 1);
-      }
+    borrowRecords.forEach(record => {
+      borrowCounts.set(record.bookId, (borrowCounts.get(record.bookId) || 0) + 1);
     });
 
     const results: { book: Book; borrowCount: number }[] = [];
-    for (const [bookId, count] of borrowCounts) {
-      const book = this.books.get(bookId);
+    for (const bookId of borrowCounts.keys()) {
+      const count = borrowCounts.get(bookId)!;
+      const book = await this.getBook(bookId);
       if (book) {
         results.push({ book, borrowCount: count });
       }
@@ -310,17 +331,20 @@ export class MemStorage implements IStorage {
   }
 
   async getMostActiveReaders(): Promise<{ member: Member; borrowCount: number }[]> {
+    const borrowRecords = await db
+      .select()
+      .from(circulation)
+      .where(eq(circulation.action, "borrow"));
+
     const borrowCounts = new Map<number, number>();
-    
-    Array.from(this.circulation.values()).forEach(record => {
-      if (record.action === "borrow") {
-        borrowCounts.set(record.memberId, (borrowCounts.get(record.memberId) || 0) + 1);
-      }
+    borrowRecords.forEach(record => {
+      borrowCounts.set(record.memberId, (borrowCounts.get(record.memberId) || 0) + 1);
     });
 
     const results: { member: Member; borrowCount: number }[] = [];
-    for (const [memberId, count] of borrowCounts) {
-      const member = this.members.get(memberId);
+    for (const memberId of borrowCounts.keys()) {
+      const count = borrowCounts.get(memberId)!;
+      const member = await this.getMember(memberId);
       if (member) {
         results.push({ member, borrowCount: count });
       }
@@ -334,8 +358,8 @@ export class MemStorage implements IStorage {
     const results: { book: Book; member: Member; dueDate: Date | null }[] = [];
     
     for (const record of activeCirculation) {
-      const book = this.books.get(record.bookId);
-      const member = this.members.get(record.memberId);
+      const book = await this.getBook(record.bookId);
+      const member = await this.getMember(record.memberId);
       
       if (book && member) {
         results.push({
@@ -350,4 +374,4 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

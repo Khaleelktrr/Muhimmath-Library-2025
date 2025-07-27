@@ -22,7 +22,8 @@ Preferred communication style: Simple, everyday language.
 - **Express.js** server with TypeScript
 - **RESTful API** design with endpoints for books, members, circulation, and analytics
 - **Drizzle ORM** for database operations and schema management
-- **PostgreSQL** database (configured via Neon serverless)
+- **PostgreSQL** database (configured via Neon serverless) - **ACTIVE AND CONFIGURED**
+- **DatabaseStorage** class replacing in-memory storage for persistent data
 - **Connect-pg-simple** for session storage
 
 ### Project Structure
