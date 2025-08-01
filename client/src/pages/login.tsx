@@ -19,7 +19,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     // Check credentials
-    if (username === "MUhimmathlibrary" && password === "Muhimmathlibrary2025") {
+    if (username === "Muhimmathlibrary" && password === "Muhimmathlibrary2025") {
       // Store login status in localStorage
       localStorage.setItem("isAdminLoggedIn", "true");
       

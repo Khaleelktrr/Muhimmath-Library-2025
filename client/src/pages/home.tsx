@@ -6,9 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import BookCard from "@/components/public/book-card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import SuggestBookModal from "@/components/modals/suggest-book-modal";
 import WriteReviewModal from "@/components/modals/write-review-modal";
 import ViewReportsModal from "@/components/modals/view-reports-modal";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import type { Book } from "@shared/schema";
 
 export default function Home() {
@@ -18,7 +21,7 @@ export default function Home() {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showReportsModal, setShowReportsModal] = useState(false);
 
-  const { data: books = [], isLoading: booksLoading } = useQuery<Book[]>({
+  const { data: books = [], isLoading: booksLoading } = useQuery<Book[]>({ 
     queryKey: ["/api/books"],
   });
 
@@ -45,18 +48,23 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <h1 className="text-2xl font-semibold text-gray-900">Muhimmath Library</h1>
-            <Button onClick={() => navigate("/login")} className="bg-primary hover:bg-primary/90">
-              <Shield className="w-4 h-4 mr-2" />
-              Admin Login
-            </Button>
+            <div className="flex items-center space-x-4">
+
+              <Button onClick={() => navigate("/login")} className="bg-primary hover:bg-primary/90">
+                <Shield className="w-4 h-4 mr-2" />
+                Admin Login
+              </Button>
+            </div>
           </div>
         </div>
       </header>
 
+
+
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-3 gap-6 mb-8">
           <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setShowSuggestModal(true)}>
             <CardContent className="p-6">
               <div className="flex items-center justify-center w-12 h-12 bg-yellow-100 rounded-lg mb-4">
@@ -121,15 +129,46 @@ export default function Home() {
               </div>
             )}
             
-            {/* Books Grid */}
+            {/* Books Table */}
             {!booksLoading && !searchLoading && displayBooks.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {displayBooks.map((book) => {
-                  const borrower = issuedBooks.find(item => item.book.id === book.id)?.member;
-                  return (
-                    <BookCard key={book.id} book={book} borrower={borrower} />
-                  );
-                })}
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Book No.</TableHead>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Author</TableHead>
+                      <TableHead>DDC</TableHead>
+                      <TableHead>Publisher</TableHead>
+                      <TableHead>Price</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {displayBooks.map((book) => {
+                      const borrower = issuedBooks.find(item => item.book.id === book.id)?.member;
+                      return (
+                        <TableRow key={book.id}>
+                          <TableCell className="font-medium">{book.id}</TableCell>
+                          <TableCell>{book.title}</TableCell>
+                          <TableCell>{book.author}</TableCell>
+                          <TableCell>{book.ddc}</TableCell>
+                          <TableCell>{book.publisher}</TableCell>
+                          <TableCell>${book.price}</TableCell>
+                          <TableCell>{book.category}</TableCell>
+                          <TableCell>
+                            {borrower ? (
+                              <span className="text-red-600">Issued to {borrower.fullName}</span>
+                            ) : (
+                              <span className="text-green-600">Available</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               </div>
             )}
             

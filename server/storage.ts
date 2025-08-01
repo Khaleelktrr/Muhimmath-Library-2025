@@ -55,7 +55,13 @@ export interface IStorage {
   // Analytics
   getMostReadBooks(): Promise<{ book: Book; borrowCount: number }[]>;
   getMostActiveReaders(): Promise<{ member: Member; borrowCount: number }[]>;
-  getIssuedBooks(): Promise<{ book: Book; member: Member; dueDate: Date | null }[]>;
+  getIssuedBooks(): Promise<{ book: Book; member: Member; dueDate: Date | null }>[];
+
+  // Member-specific data
+  getIssuedBooksForMember(memberId: number): Promise<Circulation[]>;
+  getReturnedBooksForMember(memberId: number): Promise<Circulation[]>;
+  getBookSuggestionsForMember(memberId: number): Promise<BookSuggestion[]>;
+  getBookReviewsForMember(memberId: number): Promise<BookReview[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -369,9 +375,26 @@ export class DatabaseStorage implements IStorage {
         });
       }
     }
-
     return results;
   }
+
+  // Member-specific data
+  async getIssuedBooksForMember(memberId: number): Promise<Circulation[]> {
+    return await db.select().from(circulation).where(and(eq(circulation.memberId, memberId), eq(circulation.action, "borrow"), eq(circulation.status, "active")));
+  }
+
+  async getReturnedBooksForMember(memberId: number): Promise<Circulation[]> {
+    return await db.select().from(circulation).where(and(eq(circulation.memberId, memberId), eq(circulation.action, "return")));
+  }
+
+  async getBookSuggestionsForMember(memberId: number): Promise<BookSuggestion[]> {
+    return await db.select().from(bookSuggestions).where(eq(bookSuggestions.suggestedByMemberId, memberId));
+  }
+
+  async getBookReviewsForMember(memberId: number): Promise<BookReview[]> {
+    return await db.select().from(bookReviews).where(eq(bookReviews.memberId, memberId));
+  }
+
 }
 
 export const storage = new DatabaseStorage();

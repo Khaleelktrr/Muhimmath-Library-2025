@@ -3,11 +3,13 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { X } from "lucide-react";
+import { X, Check } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
@@ -69,6 +71,8 @@ export default function SuggestBookModal({ open, onOpenChange }: SuggestBookModa
     },
   });
 
+  const [popoverOpen, setPopoverOpen] = useState(false);
+
   const onSubmit = (data: SuggestionForm) => {
     createSuggestion.mutate(data);
   };
@@ -90,20 +94,53 @@ export default function SuggestBookModal({ open, onOpenChange }: SuggestBookModa
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Your Name</FormLabel>
-                  <Select onValueChange={(value) => field.onChange(parseInt(value))}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select member..." />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {members.map((member) => (
-                        <SelectItem key={member.id} value={member.id.toString()}>
-                          {member.fullName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                    <PopoverTrigger asChild onOpenChange={setPopoverOpen}>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={popoverOpen}
+                          className="w-full justify-between"
+                        >
+                          {field.value
+                            ? members.find(
+                                (member) => member.id === field.value
+                              )?.fullName
+                            : "Select member..."}
+                          <X className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                         </Button>
+                       </FormControl>
+                     </PopoverTrigger>
+                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                       <Command>
+                         <CommandInput placeholder="Search member..." />
+                         <CommandEmpty>No member found.</CommandEmpty>
+                         <CommandGroup>
+                           {members.map((member) => (
+                             <CommandItem
+                               value={member.fullName}
+                               key={member.id}
+                               onSelect={() => {
+                                 form.setValue("memberId", member.id);
+                                 setPopoverOpen(false);
+                               }}
+                             >
+                               {member.fullName}
+                               <Check
+                                 className={
+                                   `ml-auto h-4 w-4 ${member.id === field.value
+                                     ? "opacity-100"
+                                     : "opacity-0"
+                                   }`
+                                 }
+                               />
+                             </CommandItem>
+                           ))}
+                         </CommandGroup>
+                       </Command>
+                     </PopoverContent>
+                  </Popover>
                   <FormMessage />
                 </FormItem>
               )}

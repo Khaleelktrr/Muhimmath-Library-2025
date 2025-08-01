@@ -5,11 +5,15 @@ import { z } from "zod";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
+import { useState } from "react";
+import { X, Check } from "lucide-react";
 import type { Book, Member, InsertBookReview } from "@shared/schema";
 
 const reviewSchema = z.object({
@@ -70,6 +74,9 @@ export default function WriteReviewModal({ open, onOpenChange }: WriteReviewModa
     },
   });
 
+  const [bookPopoverOpen, setBookPopoverOpen] = useState(false);
+  const [memberPopoverOpen, setMemberPopoverOpen] = useState(false);
+
   const onSubmit = (data: ReviewForm) => {
     createReview.mutate(data);
   };
@@ -91,20 +98,51 @@ export default function WriteReviewModal({ open, onOpenChange }: WriteReviewModa
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Book Title</FormLabel>
-                  <Select onValueChange={(value) => field.onChange(parseInt(value))}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a book..." />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {books.map((book) => (
-                        <SelectItem key={book.id} value={book.id.toString()}>
-                          {book.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={bookPopoverOpen} onOpenChange={setBookPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={bookPopoverOpen}
+                          className="w-full justify-between"
+                        >
+                          {field.value
+                            ? books.find((book) => book.id === field.value)?.title
+                            : "Select a book..."}
+                          <X className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                      <Command>
+                        <CommandInput placeholder="Search book..." />
+                        <CommandEmpty>No book found.</CommandEmpty>
+                        <CommandGroup>
+                          {books.map((book) => (
+                            <CommandItem
+                              value={book.title}
+                              key={book.id}
+                              onSelect={() => {
+                                form.setValue("bookId", book.id);
+                                setBookPopoverOpen(false);
+                              }}
+                            >
+                              {book.title}
+                              <Check
+                                className={
+                                  `ml-auto h-4 w-4 ${book.id === field.value
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                  }`
+                                }
+                              />
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                   <FormMessage />
                 </FormItem>
               )}
@@ -116,20 +154,53 @@ export default function WriteReviewModal({ open, onOpenChange }: WriteReviewModa
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Your Name</FormLabel>
-                  <Select onValueChange={(value) => field.onChange(parseInt(value))}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select member..." />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {members.map((member) => (
-                        <SelectItem key={member.id} value={member.id.toString()}>
-                          {member.fullName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={memberPopoverOpen} onOpenChange={setMemberPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={memberPopoverOpen}
+                          className="w-full justify-between"
+                        >
+                          {field.value
+                            ? members.find(
+                                (member) => member.id === field.value
+                              )?.fullName
+                            : "Select member..."}
+                          <X className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                      <Command>
+                        <CommandInput placeholder="Search member..." />
+                        <CommandEmpty>No member found.</CommandEmpty>
+                        <CommandGroup>
+                          {members.map((member) => (
+                            <CommandItem
+                              value={member.fullName}
+                              key={member.id}
+                              onSelect={() => {
+                                form.setValue("memberId", member.id);
+                                setMemberPopoverOpen(false);
+                              }}
+                            >
+                              {member.fullName}
+                              <Check
+                                className={
+                                  `ml-auto h-4 w-4 ${member.id === field.value
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                  }`
+                                }
+                              />
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                   <FormMessage />
                 </FormItem>
               )}

@@ -203,6 +203,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reader Data
+  app.get("/api/members/:id/issued-books", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const books = await storage.getIssuedBooksForMember(id);
+      res.json(books);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch issued books" });
+    }
+  });
+
+  app.get("/api/members/:id/returned-books", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const books = await storage.getReturnedBooksForMember(id);
+      res.json(books);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch returned books" });
+    }
+  });
+
+  app.get("/api/members/:id/reviews", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const reviews = await storage.getBookReviewsForMember(id);
+      res.json(reviews);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch reviews" });
+    }
+  });
+
+  app.get("/api/members/:id/suggestions", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const suggestions = await storage.getBookSuggestionsForMember(id);
+      res.json(suggestions);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch suggestions" });
+    }
+  });
+
   // Book Suggestions
   app.get("/api/book-suggestions", async (req, res) => {
     try {
